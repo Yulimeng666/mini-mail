@@ -1,0 +1,38 @@
+{
+  "permissions": {
+    "allow": [
+      "Read",
+      "Write",
+      "Bash(npm *)",
+      "Bash(git *)",
+      "Bash(node *)"
+    ],
+    "deny": [
+      "Bash(rm -rf *)"
+    ]
+  },
+  "hooks": {
+ 
+    "PostToolUse": [
+      {
+        "matcher": "Write",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "echo \"文件已修改\""
+          }
+        ]
+      },
+      {
+        "matcher": "Edit",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "echo \"文件已修改\""
+          }
+        ]
+      }
+    ]
+  },
+  "autoCompactWindow": 800000
+}
