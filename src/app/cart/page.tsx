@@ -29,6 +29,8 @@ export default function CartPage() {
   const [cart, setCart] = useState<CartData | null>(null);
   const [loading, setLoading] = useState(true);
   const [updatingId, setUpdatingId] = useState<number | null>(null);
+  const [submitting, setSubmitting] = useState(false);
+  const [submitError, setSubmitError] = useState("");
 
   // 加载购物车数据
   const fetchCart = useCallback(async () => {
@@ -53,15 +55,15 @@ export default function CartPage() {
     fetchCart();
   }, [fetchCart]);
 
-  // 修改数量
+  // 修改数量 → PUT /api/cart/[id]
   async function updateQuantity(itemId: number, quantity: number) {
     if (quantity < 1) return;
     setUpdatingId(itemId);
     try {
-      const res = await fetch("/api/cart", {
-        method: "PATCH",
+      const res = await fetch(`/api/cart/${itemId}`, {
+        method: "PUT",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ itemId, quantity }),
+        body: JSON.stringify({ quantity }),
       });
       const data = await res.json();
       if (data.success) {
@@ -76,15 +78,37 @@ export default function CartPage() {
     }
   }
 
-  // 删除商品
+  // 提交订单
+  async function handleSubmitOrder() {
+    setSubmitting(true);
+    setSubmitError("");
+    try {
+      const res = await fetch("/api/orders", { method: "POST" });
+      if (res.status === 401) {
+        router.push("/auth/login?redirect=/cart");
+        return;
+      }
+      const data = await res.json();
+      if (data.success) {
+        router.push(`/orders/${data.data.id}`);
+        router.refresh();
+      } else {
+        setSubmitError(data.message);
+      }
+    } catch {
+      setSubmitError("网络错误，请稍后重试");
+    } finally {
+      setSubmitting(false);
+    }
+  }
+
+  // 删除商品 → DELETE /api/cart/[id]
   async function removeItem(itemId: number) {
     if (!confirm("确定要移除此商品吗？")) return;
     setUpdatingId(itemId);
     try {
-      const res = await fetch("/api/cart", {
+      const res = await fetch(`/api/cart/${itemId}`, {
         method: "DELETE",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ itemId }),
       });
       const data = await res.json();
       if (data.success) {
@@ -158,60 +182,67 @@ export default function CartPage() {
               )}
             </Link>
 
-            {/* 商品信息 */}
-            <div className="flex flex-1 flex-col justify-between">
-              <div>
-                <Link
-                  href={`/products/${item.productId}`}
-                  className="text-sm font-medium text-zinc-900 dark:text-white hover:text-blue-600 transition-colors line-clamp-2"
-                >
-                  {item.name}
-                </Link>
-                <p className="mt-1 text-lg font-bold text-red-600 dark:text-red-400">
-                  {formatPrice(item.price)}
-                </p>
-              </div>
+            {/* 商品信息 + 数量 + 小计 */}
+            <div className="flex flex-1 flex-col justify-between min-w-0">
+              {/* 名称 */}
+              <Link
+                href={`/products/${item.productId}`}
+                className="text-sm font-medium text-zinc-900 dark:text-white hover:text-blue-600 transition-colors line-clamp-2"
+              >
+                {item.name}
+              </Link>
 
-              {/* 数量控制 + 操作 */}
-              <div className="flex items-center justify-between">
-                <div className="flex items-center gap-0">
-                  <button
-                    onClick={() => updateQuantity(item.id, item.quantity - 1)}
-                    disabled={updatingId === item.id || item.quantity <= 1}
-                    className="h-8 w-8 rounded-l-lg border border-zinc-300 text-zinc-600
-                               hover:bg-zinc-50 disabled:opacity-30 transition-colors
-                               dark:border-zinc-700 dark:text-zinc-400 dark:hover:bg-zinc-800 cursor-pointer"
-                  >
-                    −
-                  </button>
-                  <span className="flex h-8 w-10 items-center justify-center border-y border-zinc-300 text-sm text-zinc-900 dark:border-zinc-700 dark:text-zinc-100">
-                    {updatingId === item.id ? "..." : item.quantity}
-                  </span>
-                  <button
-                    onClick={() => updateQuantity(item.id, item.quantity + 1)}
-                    disabled={updatingId === item.id || item.quantity >= item.stock}
-                    className="h-8 w-8 rounded-r-lg border border-zinc-300 text-zinc-600
-                               hover:bg-zinc-50 disabled:opacity-30 transition-colors
-                               dark:border-zinc-700 dark:text-zinc-400 dark:hover:bg-zinc-800 cursor-pointer"
-                  >
-                    +
-                  </button>
+              <div className="flex items-end justify-between mt-2">
+                {/* 左侧：单价 + 数量控制 */}
+                <div>
+                  <p className="text-sm text-zinc-500">
+                    单价 {formatPrice(item.price)}
+                  </p>
+                  <div className="flex items-center gap-0 mt-1.5">
+                    <button
+                      onClick={() => updateQuantity(item.id, item.quantity - 1)}
+                      disabled={updatingId === item.id || item.quantity <= 1}
+                      className="h-8 w-8 rounded-l-lg border border-zinc-300 text-zinc-600
+                                 hover:bg-zinc-50 disabled:opacity-30 transition-colors
+                                 dark:border-zinc-700 dark:text-zinc-400 dark:hover:bg-zinc-800 cursor-pointer"
+                    >
+                      −
+                    </button>
+                    <span className="flex h-8 w-10 items-center justify-center border-y border-zinc-300 text-sm text-zinc-900 dark:border-zinc-700 dark:text-zinc-100">
+                      {updatingId === item.id ? "..." : item.quantity}
+                    </span>
+                    <button
+                      onClick={() => updateQuantity(item.id, item.quantity + 1)}
+                      disabled={updatingId === item.id || item.quantity >= item.stock}
+                      className="h-8 w-8 rounded-r-lg border border-zinc-300 text-zinc-600
+                                 hover:bg-zinc-50 disabled:opacity-30 transition-colors
+                                 dark:border-zinc-700 dark:text-zinc-400 dark:hover:bg-zinc-800 cursor-pointer"
+                    >
+                      +
+                    </button>
+                  </div>
                 </div>
 
-                <button
-                  onClick={() => removeItem(item.id)}
-                  disabled={updatingId === item.id}
-                  className="text-xs text-zinc-400 hover:text-red-600 disabled:opacity-30 transition-colors cursor-pointer"
-                >
-                  删除
-                </button>
+                {/* 右侧：小计 + 删除 */}
+                <div className="text-right">
+                  <p className="text-lg font-bold text-red-600 dark:text-red-400">
+                    {formatPrice(item.price * item.quantity)}
+                  </p>
+                  <button
+                    onClick={() => removeItem(item.id)}
+                    disabled={updatingId === item.id}
+                    className="text-xs text-zinc-400 hover:text-red-600 disabled:opacity-30 transition-colors cursor-pointer mt-1"
+                  >
+                    删除
+                  </button>
+                </div>
               </div>
             </div>
           </div>
         ))}
       </div>
 
-      {/* 底部合计 + 结算按钮 */}
+      {/* 底部合计 + 提交订单按钮 */}
       <div className="mt-8 rounded-2xl border border-zinc-200 bg-white p-6 dark:border-zinc-800 dark:bg-zinc-900">
         <div className="flex items-center justify-between mb-4">
           <span className="text-sm text-zinc-500">合计</span>
@@ -220,12 +251,20 @@ export default function CartPage() {
           </span>
         </div>
 
+        {/* 错误提示 */}
+        {submitError && (
+          <p className="mb-3 text-sm text-red-600 bg-red-50 dark:bg-red-900/20 rounded-lg px-3 py-2">
+            {submitError}
+          </p>
+        )}
+
         <button
-          onClick={() => router.push("/checkout")}
+          onClick={handleSubmitOrder}
+          disabled={submitting}
           className="w-full rounded-xl bg-blue-600 py-3 text-white font-medium
-                     hover:bg-blue-700 transition-colors cursor-pointer"
+                     hover:bg-blue-700 disabled:opacity-50 transition-colors cursor-pointer"
         >
-          去结算
+          {submitting ? "提交中..." : "提交订单"}
         </button>
       </div>
     </div>
