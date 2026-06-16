@@ -1,0 +1,90 @@
+// This is your Prisma schema file,
+// learn more about it in the docs: https://pris.ly/d/prisma-schema
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "sqlite"
+  url      = env("DATABASE_URL")
+}
+
+// ========== 用户 ==========
+model User {
+  id              Int       @id @default(autoincrement())
+  email           String    @unique
+  password        String                   // bcrypt 哈希
+  name            String
+  role            String    @default("USER") // USER | ADMIN
+  totalSpent      Float     @default(0)      // 累计消费金额
+  membershipLevel Int       @default(0)      // 心悦等级：0=普通 1=一级 2=二级 3=三级
+  createdAt       DateTime  @default(now())
+  orders          Order[]
+  cart            Cart?
+}
+
+// ========== 分类 ==========
+model Category {
+  id       Int       @id @default(autoincrement())
+  name     String    @unique
+  slug     String    @unique
+  products Product[]
+}
+
+// ========== 商品 ==========
+model Product {
+  id          Int          @id @default(autoincrement())
+  name        String
+  description String
+  price       Float
+  image       String?                    // 图片路径
+  stock       Int          @default(0)
+  isActive    Boolean      @default(true)
+  categoryId  Int
+  category    Category     @relation(fields: [categoryId], references: [id])
+  createdAt   DateTime     @default(now())
+  cartItems   CartItem[]
+  orderItems  OrderItem[]
+}
+
+// ========== 购物车 ==========
+model Cart {
+  id     Int        @id @default(autoincrement())
+  userId Int        @unique
+  user   User       @relation(fields: [userId], references: [id])
+  items  CartItem[]
+}
+
+model CartItem {
+  id        Int     @id @default(autoincrement())
+  cartId    Int
+  cart      Cart    @relation(fields: [cartId], references: [id], onDelete: Cascade)
+  productId Int
+  product   Product @relation(fields: [productId], references: [id])
+  quantity  Int     @default(1)
+}
+
+// ========== 订单 ==========
+model Order {
+  id            Int         @id @default(autoincrement())
+  userId        Int
+  user          User        @relation(fields: [userId], references: [id])
+  status        String      @default("PENDING") // PENDING | PAID | SHIPPED | COMPLETED | CANCELLED
+  originalTotal Float                          // 折扣前原始总价
+  discount      Float       @default(0)        // 会员折扣金额
+  total         Float                          // 折扣后实付总价
+  items         OrderItem[]
+  createdAt     DateTime    @default(now())
+  updatedAt     DateTime    @updatedAt
+}
+
+model OrderItem {
+  id        Int     @id @default(autoincrement())
+  orderId   Int
+  order     Order   @relation(fields: [orderId], references: [id], onDelete: Cascade)
+  productId Int
+  product   Product @relation(fields: [productId], references: [id])
+  quantity  Int
+  price     Float            // 下单时的价格快照
+}

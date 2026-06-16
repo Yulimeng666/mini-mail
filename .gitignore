@@ -30,8 +30,22 @@ yarn-debug.log*
 yarn-error.log*
 .pnpm-debug.log*
 
-# env files (can opt-in for committing if needed)
-.env*
+# env files
+.env
+.env.*
+!.env.example
+
+# database (SQLite)
+*.db
+*.db-journal
+prisma/migrations/
+
+# uploads (local dev)
+public/uploads/*
+
+# IDE
+.vscode/
+.idea/
 
 # vercel
 .vercel
