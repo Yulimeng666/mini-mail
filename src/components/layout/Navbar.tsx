@@ -29,6 +29,14 @@ export async function Navbar() {
               <Link href="/orders" className="hover:text-zinc-900 dark:hover:text-white transition-colors">
                 我的订单
               </Link>
+              {user.role === "ADMIN" && (
+                <Link
+                  href="/admin"
+                  className="rounded-lg bg-zinc-800 px-3 py-1.5 text-white text-sm font-medium hover:bg-zinc-700 transition-colors dark:bg-zinc-200 dark:text-zinc-900 dark:hover:bg-zinc-300"
+                >
+                  后台
+                </Link>
+              )}
               <UserMenu name={user.name} membershipLevel={user.membershipLevel} />
             </>
           ) : (
